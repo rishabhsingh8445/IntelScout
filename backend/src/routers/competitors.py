@@ -7,6 +7,7 @@ from typing import List
 from ..database import get_db
 from ..models import Competitor, Insight, ScrapedItem
 from ..tasks.scraping_tasks import _async_run_scraping_job
+from ..dependencies import get_current_user
 
 router = APIRouter(prefix="/api", tags=["api"])
 
@@ -16,23 +17,22 @@ async def add_competitor(
     timeframe: str = "Since Launch", 
     report_type: str = "Short",
     background_tasks: BackgroundTasks = None, 
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user)
 ):
-    comp = Competitor(name=name, timeframe=timeframe)
+    comp = Competitor(name=name, timeframe=timeframe, user_id=user_id)
     db.add(comp)
     await db.commit()
     await db.refresh(comp)
     
-    # Trigger background scraping native to FastAPI
     if background_tasks:
         background_tasks.add_task(_async_run_scraping_job, comp.id, report_type)
     
     return {"message": "Competitor added and scraping started.", "competitor_id": comp.id}
 
 @router.get("/competitors")
-async def list_competitors(db: AsyncSession = Depends(get_db)):
-    # We also want to load their items count and insight count
-    result = await db.execute(select(Competitor).options(selectinload(Competitor.items), selectinload(Competitor.insights)))
+async def list_competitors(db: AsyncSession = Depends(get_db), user_id: str = Depends(get_current_user)):
+    result = await db.execute(select(Competitor).where(Competitor.user_id == user_id).options(selectinload(Competitor.items), selectinload(Competitor.insights)))
     competitors = result.scalars().all()
     
     data = []
@@ -49,8 +49,8 @@ async def list_competitors(db: AsyncSession = Depends(get_db)):
     return data
 
 @router.get("/insights")
-async def get_all_insights(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Insight).options(selectinload(Insight.competitor)).order_by(Insight.created_at.desc()))
+async def get_all_insights(db: AsyncSession = Depends(get_db), user_id: str = Depends(get_current_user)):
+    result = await db.execute(select(Insight).join(Competitor, Insight.competitor_id == Competitor.id).where(Competitor.user_id == user_id).options(selectinload(Insight.competitor)).order_by(Insight.created_at.desc()))
     insights = result.scalars().all()
     
     data = []
@@ -69,8 +69,8 @@ async def get_all_insights(db: AsyncSession = Depends(get_db)):
     return data
 
 @router.post("/competitors/{competitor_id}/rescrape")
-async def rescrape_competitor(competitor_id: int, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
-    comp = (await db.execute(select(Competitor).where(Competitor.id == competitor_id))).scalar_one_or_none()
+async def rescrape_competitor(competitor_id: int, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db), user_id: str = Depends(get_current_user)):
+    comp = (await db.execute(select(Competitor).where(Competitor.id == competitor_id, Competitor.user_id == user_id))).scalar_one_or_none()
     if not comp:
         raise HTTPException(status_code=404, detail="Competitor not found")
         
@@ -78,8 +78,8 @@ async def rescrape_competitor(competitor_id: int, background_tasks: BackgroundTa
     return {"message": "Rescraping triggered"}
 
 @router.post("/competitors/{competitor_id}/watch")
-async def toggle_watch_competitor(competitor_id: int, db: AsyncSession = Depends(get_db)):
-    comp = (await db.execute(select(Competitor).where(Competitor.id == competitor_id))).scalar_one_or_none()
+async def toggle_watch_competitor(competitor_id: int, db: AsyncSession = Depends(get_db), user_id: str = Depends(get_current_user)):
+    comp = (await db.execute(select(Competitor).where(Competitor.id == competitor_id, Competitor.user_id == user_id))).scalar_one_or_none()
     if not comp:
         raise HTTPException(status_code=404, detail="Competitor not found")
         
@@ -88,8 +88,8 @@ async def toggle_watch_competitor(competitor_id: int, db: AsyncSession = Depends
     return {"message": "Watch status updated", "is_watched": comp.is_watched}
 
 @router.delete("/competitors/{competitor_id}")
-async def delete_competitor(competitor_id: int, db: AsyncSession = Depends(get_db)):
-    comp = (await db.execute(select(Competitor).where(Competitor.id == competitor_id))).scalar_one_or_none()
+async def delete_competitor(competitor_id: int, db: AsyncSession = Depends(get_db), user_id: str = Depends(get_current_user)):
+    comp = (await db.execute(select(Competitor).where(Competitor.id == competitor_id, Competitor.user_id == user_id))).scalar_one_or_none()
     if not comp:
         raise HTTPException(status_code=404, detail="Competitor not found")
         
@@ -98,14 +98,12 @@ async def delete_competitor(competitor_id: int, db: AsyncSession = Depends(get_d
     return {"message": "Competitor deleted successfully"}
 
 @router.post("/trigger-alerts")
-async def trigger_alerts(background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Competitor).where(Competitor.is_watched == True))
+async def trigger_alerts(background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db), user_id: str = Depends(get_current_user)):
+    result = await db.execute(select(Competitor).where(Competitor.is_watched == True, Competitor.user_id == user_id))
     watched_comps = result.scalars().all()
-    print(f"Triggering alerts for {len(watched_comps)} watched companies...")
     for comp in watched_comps:
         background_tasks.add_task(_async_run_scraping_job, comp.id, "Short")
-        print(f"--> Triggered rescrape for {comp.name}")
-    return {"message": f"Successfully checked {len(watched_comps)} watched competitors. Email alerts and rescraping triggered."}
+    return {"message": f"Successfully checked {len(watched_comps)} watched competitors."}
 
 from pydantic import BaseModel
 from ..services.ai import answer_rag_question
@@ -114,8 +112,8 @@ class ChatRequest(BaseModel):
     message: str
 
 @router.post("/competitors/{competitor_id}/chat")
-async def chat_with_competitor(competitor_id: int, req: ChatRequest, db: AsyncSession = Depends(get_db)):
-    comp = (await db.execute(select(Competitor).where(Competitor.id == competitor_id))).scalar_one_or_none()
+async def chat_with_competitor(competitor_id: int, req: ChatRequest, db: AsyncSession = Depends(get_db), user_id: str = Depends(get_current_user)):
+    comp = (await db.execute(select(Competitor).where(Competitor.id == competitor_id, Competitor.user_id == user_id))).scalar_one_or_none()
     if not comp:
         raise HTTPException(status_code=404, detail="Competitor not found")
         
@@ -128,8 +126,8 @@ async def chat_with_competitor(competitor_id: int, req: ChatRequest, db: AsyncSe
 from ..services.predictive_engine import generate_future_predictions
 
 @router.get("/competitors/{competitor_id}/predictions")
-async def get_predictions(competitor_id: int, db: AsyncSession = Depends(get_db)):
-    comp = (await db.execute(select(Competitor).options(selectinload(Competitor.insights)).where(Competitor.id == competitor_id))).scalar_one_or_none()
+async def get_predictions(competitor_id: int, db: AsyncSession = Depends(get_db), user_id: str = Depends(get_current_user)):
+    comp = (await db.execute(select(Competitor).options(selectinload(Competitor.insights)).where(Competitor.id == competitor_id, Competitor.user_id == user_id))).scalar_one_or_none()
     if not comp:
         raise HTTPException(status_code=404, detail="Competitor not found")
         

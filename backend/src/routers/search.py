@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Depends
 import asyncio
 from ..services.vector_db import get_embeddings, index
+from ..dependencies import get_current_user
 
 from typing import Optional
 
@@ -9,21 +10,22 @@ router = APIRouter(prefix="/api/search", tags=["search"])
 @router.get("")
 async def search_all(
     q: str = Query(..., description="The search query string"),
-    competitor: Optional[str] = Query(None, description="Optional competitor to filter by")
+    competitor: Optional[str] = Query(None, description="Optional competitor to filter by"),
+    user_id: str = Depends(get_current_user)
 ):
     query_embedding = await get_embeddings([q], input_type="query")
     if not query_embedding:
         return {"answer": "No relevant data found.", "results": []}
         
     def do_query():
-        filter_dict = {}
+        filter_dict = {"user_id": {"$eq": user_id}}
         if competitor:
             filter_dict["competitor_name"] = {"$eq": competitor}
             
         return index.query(
             vector=query_embedding[0],
             top_k=6,
-            filter=filter_dict if filter_dict else None,
+            filter=filter_dict,
             include_metadata=True
         )
         

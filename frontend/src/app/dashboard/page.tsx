@@ -5,11 +5,15 @@ import { Activity, Users, Lightbulb, Target, ArrowRight } from "lucide-react";
 import AnimatedCard from "@/components/AnimatedCard";
 import AnimatedText from "@/components/AnimatedText";
 import axios from "axios";
+import { useAuth } from "@clerk/nextjs";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import Link from "next/link";
 
 export default function DashboardHome() {
+  const { userId } = useAuth();
+  const headers = { 'x-user-id': userId };
+
   const [stats, setStats] = useState({ competitors: 0, insights: 0 });
   const [briefing, setBriefing] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -18,8 +22,8 @@ export default function DashboardHome() {
     const fetchStats = async () => {
       try {
         const [compRes, insRes] = await Promise.all([
-          axios.get(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/competitors`).catch(() => ({ data: [] })),
-          axios.get(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/insights`).catch(() => ({ data: [] }))
+          axios.get(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/competitors`, { headers }).catch(() => ({ data: [] })),
+          axios.get(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/insights`, { headers }).catch(() => ({ data: [] }))
         ]);
         
         setStats({
@@ -35,7 +39,7 @@ export default function DashboardHome() {
     
     const fetchBriefing = async () => {
       try {
-        const briefRes = await axios.get(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/briefing`);
+        const briefRes = await axios.get(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/briefing`, { headers });
         setBriefing(briefRes.data?.briefing);
       } catch (error) {
         console.error("Error fetching briefing", error);

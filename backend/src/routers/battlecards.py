@@ -1,8 +1,9 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 import asyncio
 from ..tasks.scraping_tasks import get_search_results
 from ..services.ai import generate_research_plan, generate_battlecard
+from ..dependencies import get_current_user
 
 router = APIRouter(prefix="/api/battlecards", tags=["battlecards"])
 
@@ -13,7 +14,7 @@ class BattlecardRequest(BaseModel):
 
 from playwright.async_api import async_playwright
 
-async def scrape_company_context(name: str, timeframe: str) -> str:
+async def scrape_company_context(name: str, timeframe: str, user_id: str) -> str:
     queries = await generate_research_plan(name, timeframe)
     all_snippets = []
     urls_to_scrape = []
@@ -63,28 +64,28 @@ async def scrape_company_context(name: str, timeframe: str) -> str:
         scraped_contexts = [r for r in results if r]
             
         if scraped_contexts:
-            await upsert_multiple_contexts(competitor_name=name, contexts=scraped_contexts)
+            await upsert_multiple_contexts(competitor_name=name, user_id=user_id, contexts=scraped_contexts)
 
 
     except Exception as e:
         print(f"Playwright error: {e}")
 
     # Query the Vector DB for the most relevant context instead of dumping all text
-    rag_context = await query_context(competitor_name=name, query="What are the key products, pricing, features, target audience, and recent announcements?")
+    rag_context = await query_context(competitor_name=name, user_id=user_id, query="What are the key products, pricing, features, target audience, and recent announcements?")
 
     return "--- SNIPPETS ---\n" + "\n\n".join(all_snippets) + "\n\n--- RAG RETRIEVED CONTEXT ---\n" + rag_context
 
 battlecard_cache = {}
 
 @router.post("")
-async def create_battlecard(req: BattlecardRequest):
-    cache_key = f"{req.company_a}_{req.company_b}_{req.timeframe}"
+async def create_battlecard(req: BattlecardRequest, user_id: str = Depends(get_current_user)):
+    cache_key = f"{user_id}_{req.company_a}_{req.company_b}_{req.timeframe}"
     if cache_key in battlecard_cache:
         return {"report": battlecard_cache[cache_key]}
         
     # Run research for both companies in parallel
-    comp_a_task = scrape_company_context(req.company_a, req.timeframe)
-    comp_b_task = scrape_company_context(req.company_b, req.timeframe)
+    comp_a_task = scrape_company_context(req.company_a, req.timeframe, user_id)
+    comp_b_task = scrape_company_context(req.company_b, req.timeframe, user_id)
     
     comp_a_data, comp_b_data = await asyncio.gather(comp_a_task, comp_b_task)
     
@@ -101,7 +102,7 @@ class DebateRequest(BaseModel):
     our_company: str
 
 @router.post("/debate")
-async def trigger_debate(req: DebateRequest):
-    comp_data = await scrape_company_context(req.competitor, "Last 1 Year")
+async def trigger_debate(req: DebateRequest, user_id: str = Depends(get_current_user)):
+    comp_data = await scrape_company_context(req.competitor, "Last 1 Year", user_id)
     debate_output = await run_multi_agent_debate(req.competitor, req.our_company, comp_data)
     return {"debate": debate_output}

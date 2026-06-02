@@ -3,6 +3,7 @@
 import React, { useState, useEffect, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
+import { useAuth } from "@clerk/nextjs";
 import { 
   Users, 
   Plus, 
@@ -82,6 +83,9 @@ interface Competitor {
 }
 
 export default function CompetitorsPage() {
+  const { userId } = useAuth();
+  const headers = { 'x-user-id': userId };
+
   const [competitors, setCompetitors] = useState<Competitor[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -141,7 +145,7 @@ export default function CompetitorsPage() {
   const fetchCompetitors = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/competitors`);
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/competitors`, { headers });
       setCompetitors(res.data);
     } catch (error) {
       console.error("Failed to fetch competitors", error);
@@ -161,7 +165,7 @@ export default function CompetitorsPage() {
 
     const intervalId = setInterval(async () => {
       try {
-        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/competitors`);
+        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/competitors`, { headers });
         setCompetitors(res.data);
       } catch (error) {
         console.error("Failed to poll competitors", error);
@@ -191,7 +195,7 @@ export default function CompetitorsPage() {
 
   const handleDelete = async (id: number) => {
     try {
-      await axios.delete(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/competitors/${id}`);
+      await axios.delete(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/competitors/${id}`, { headers });
       setCompetitors(competitors.filter((c) => c.id !== id));
     } catch (error) {
       console.error("Failed to delete competitor", error);
@@ -200,7 +204,7 @@ export default function CompetitorsPage() {
 
   const handleToggleWatch = async (id: number) => {
     try {
-      const res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/competitors/${id}/watch`);
+      const res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/competitors/${id}/watch`, {}, { headers });
       setCompetitors(competitors.map(c => 
         c.id === id ? { ...c, is_watched: res.data.is_watched } : c
       ));
@@ -211,7 +215,7 @@ export default function CompetitorsPage() {
 
   const handleRescrape = async (id: number) => {
     try {
-      await axios.post(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/competitors/${id}/rescrape`);
+      await axios.post(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/competitors/${id}/rescrape`, {}, { headers });
       // Update status locally
       setCompetitors(competitors.map(c => 
         c.id === id ? { ...c, status: "Researching..." } : c

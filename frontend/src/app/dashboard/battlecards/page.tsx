@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
+import { useAuth } from "@clerk/nextjs";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { 
@@ -18,6 +19,9 @@ import AnimatedCard from "@/components/AnimatedCard";
 import AnimatedText from "@/components/AnimatedText";
 
 export default function BattlecardsPage() {
+  const { userId } = useAuth();
+  const headers = { 'x-user-id': userId };
+
   const [report, setReport] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [companyA, setCompanyA] = useState("");
@@ -27,7 +31,7 @@ export default function BattlecardsPage() {
 
   useEffect(() => {
     // Fetch existing competitors for suggestions
-    axios.get(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/competitors`)
+    axios.get(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/competitors`, { headers })
       .then((res) => setCompetitors(res.data || []))
       .catch(() => {});
   }, []);
@@ -48,7 +52,7 @@ export default function BattlecardsPage() {
       const res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/battlecards`, {
         company_a: companyA,
         company_b: companyB,
-      });
+      }, { headers });
       
       setReport(res.data.report || "No report generated.");
     } catch (err) {

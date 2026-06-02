@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
+import { useAuth } from "@clerk/nextjs";
 import { 
   Lightbulb, 
   AlertCircle, 
@@ -28,6 +29,9 @@ interface Insight {
 }
 
 export default function InsightsPage() {
+  const { userId } = useAuth();
+  const headers = { 'x-user-id': userId };
+
   const [insights, setInsights] = useState<Insight[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -37,7 +41,7 @@ export default function InsightsPage() {
     const fetchInsights = async () => {
       try {
         setLoading(true);
-        const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/insights`);
+        const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/insights`, { headers });
         setInsights(Array.isArray(response.data) ? response.data : []);
         setError(null);
       } catch (err: any) {

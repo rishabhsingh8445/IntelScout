@@ -14,6 +14,7 @@ class Competitor(Base):
     __tablename__ = "competitors"
 
     id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(String, index=True, nullable=False)
     name = Column(String, index=True, nullable=False)
     timeframe = Column(String, nullable=False, default="Since Launch")
     report_markdown = Column(Text, nullable=True)

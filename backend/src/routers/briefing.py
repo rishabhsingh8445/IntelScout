@@ -1,25 +1,31 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from sqlalchemy.future import select
 from datetime import datetime, timedelta
 from ..database import AsyncSessionLocal
 from ..models import Insight, Competitor
 from ..services.ai import client, MODEL_NAME
+from ..dependencies import get_current_user
 
 router = APIRouter(prefix="/api/briefing", tags=["briefing"])
 
-briefing_cache = {"time": None, "content": None}
+briefing_cache = {}
 
 @router.get("")
-async def get_daily_briefing():
+async def get_daily_briefing(user_id: str = Depends(get_current_user)):
     global briefing_cache
-    if briefing_cache["time"] and datetime.utcnow() - briefing_cache["time"] < timedelta(minutes=15):
-        return {"briefing": briefing_cache["content"]}
+    
+    user_cache = briefing_cache.get(user_id)
+    if user_cache and user_cache["time"] and datetime.utcnow() - user_cache["time"] < timedelta(minutes=15):
+        return {"briefing": user_cache["content"]}
 
     yesterday = datetime.utcnow() - timedelta(days=1)
     
     async with AsyncSessionLocal() as session:
         result = await session.execute(
-            select(Insight, Competitor).join(Competitor, Insight.competitor_id == Competitor.id).where(Insight.created_at >= yesterday)
+            select(Insight, Competitor).join(Competitor, Insight.competitor_id == Competitor.id).where(
+                Insight.created_at >= yesterday, 
+                Competitor.user_id == user_id
+            )
         )
         rows = result.all()
     
@@ -47,7 +53,6 @@ async def get_daily_briefing():
     )
     
     content = res.choices[0].message.content
-    briefing_cache["time"] = datetime.utcnow()
-    briefing_cache["content"] = content
+    briefing_cache[user_id] = {"time": datetime.utcnow(), "content": content}
     
     return {"briefing": content}
