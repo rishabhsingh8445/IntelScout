@@ -41,7 +41,7 @@ export default function InsightsPage() {
     const fetchInsights = async () => {
       try {
         setLoading(true);
-        const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/insights`, { headers });
+        const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/competitors/insights`, { headers });
         setInsights(Array.isArray(response.data) ? response.data : []);
         setError(null);
       } catch (err: any) {
