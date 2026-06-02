@@ -118,6 +118,7 @@ export default function CompetitorsPage() {
     try {
       const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/search`, {
         params: { q: reportQuery, competitor: selectedReport.name },
+        headers,
         timeout: 45000
       });
       
@@ -180,7 +181,9 @@ export default function CompetitorsPage() {
     try {
       setSubmitting(true);
       await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/competitors?name=${encodeURIComponent(formData.name)}&timeframe=${encodeURIComponent(formData.timeframe)}&report_type=${encodeURIComponent(formData.report_type)}`
+        `${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/competitors?name=${encodeURIComponent(formData.name)}&timeframe=${encodeURIComponent(formData.timeframe)}&report_type=${encodeURIComponent(formData.report_type)}`,
+        {},
+        { headers }
       );
       setFormData({ name: "", timeframe: "Since Launch", report_type: "Short" });
       setShowAddForm(false);
