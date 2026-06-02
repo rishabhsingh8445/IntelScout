@@ -50,7 +50,8 @@ async def list_competitors(db: AsyncSession = Depends(get_db), user_id: str = De
 
 @router.get("/insights")
 async def get_all_insights(db: AsyncSession = Depends(get_db), user_id: str = Depends(get_current_user)):
-    result = await db.execute(select(Insight).join(Competitor, Insight.competitor_id == Competitor.id).where(Competitor.user_id == user_id).options(selectinload(Insight.competitor)).order_by(Insight.created_at.desc()))
+    subquery = select(Competitor.id).where(Competitor.user_id == user_id)
+    result = await db.execute(select(Insight).where(Insight.competitor_id.in_(subquery)).options(selectinload(Insight.competitor)).order_by(Insight.created_at.desc()))
     insights = result.scalars().all()
     
     data = []
