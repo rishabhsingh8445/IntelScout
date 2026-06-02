@@ -1,0 +1,294 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@theme {
+  /* Deep Space Dark */
+  --color-background: #030014;
+  --color-foreground: #e2e8f0;
+  
+  /* Dark Glass Cards */
+  --color-card: rgba(255, 255, 255, 0.03);
+  --color-card-foreground: #e2e8f0;
+  
+  /* Electric Indigo Accent */
+  --color-primary: #6366f1;
+  --color-primary-foreground: #ffffff;
+  
+  /* Deep Secondary */
+  --color-secondary: rgba(255, 255, 255, 0.05);
+  --color-secondary-foreground: #a5b4fc;
+  
+  /* Muted */
+  --color-muted: rgba(255, 255, 255, 0.03);
+  --color-muted-foreground: #94a3b8;
+  
+  /* Accent */
+  --color-accent: rgba(99, 102, 241, 0.1);
+  --color-accent-foreground: #a5b4fc;
+  
+  /* Borders */
+  --color-border: rgba(255, 255, 255, 0.08);
+  
+  --radius-lg: 0.75rem;
+  --radius-md: 0.5rem;
+  --radius-sm: 0.25rem;
+
+  /* ===================== */
+  /* 3D ANIMATION KEYFRAMES */
+  /* ===================== */
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0px) rotate(0deg); }
+    25% { transform: translateY(-12px) rotate(1deg); }
+    75% { transform: translateY(8px) rotate(-1deg); }
+  }
+
+  @keyframes float-slow {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-20px); }
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% { 
+      box-shadow: 0 0 20px rgba(99, 102, 241, 0.15), 
+                  0 0 60px rgba(99, 102, 241, 0.05),
+                  inset 0 0 20px rgba(99, 102, 241, 0.03);
+    }
+    50% { 
+      box-shadow: 0 0 40px rgba(99, 102, 241, 0.3), 
+                  0 0 80px rgba(99, 102, 241, 0.1),
+                  inset 0 0 30px rgba(99, 102, 241, 0.05);
+    }
+  }
+
+  @keyframes rotate-slow {
+    from { transform: rotateZ(0deg); }
+    to { transform: rotateZ(360deg); }
+  }
+
+  @keyframes grid-scan {
+    0% { transform: translateY(-100%); }
+    100% { transform: translateY(100vh); }
+  }
+
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  @keyframes tilt-in {
+    0% { 
+      opacity: 0; 
+      transform: perspective(1200px) rotateX(15deg) translateY(40px) scale(0.95);
+    }
+    100% { 
+      opacity: 1; 
+      transform: perspective(1200px) rotateX(0deg) translateY(0) scale(1);
+    }
+  }
+
+  @keyframes orbit {
+    0% { transform: rotate(0deg) translateX(30px) rotate(0deg); }
+    100% { transform: rotate(360deg) translateX(30px) rotate(-360deg); }
+  }
+
+  @keyframes glow-line {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes slide-up {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes slide-in-right {
+    from { opacity: 0; transform: translateX(30px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  @keyframes scale-in {
+    from { opacity: 0; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  @keyframes border-rotate {
+    0% { --angle: 0deg; }
+    100% { --angle: 360deg; }
+  }
+
+  @keyframes hero-ring-spin {
+    from { transform: rotateX(65deg) rotateZ(0deg); }
+    to { transform: rotateX(65deg) rotateZ(360deg); }
+  }
+
+  @keyframes breathing {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 0.8; }
+  }
+
+  @keyframes shooting-star {
+    0% { transform: translateX(0) translateY(0); opacity: 1; }
+    100% { transform: translateX(300px) translateY(300px); opacity: 0; }
+  }
+
+  /* Animation assignments */
+  --animate-fade-in: fade-in 0.7s ease-out;
+  --animate-slide-up: slide-up 0.5s ease-out;
+  --animate-tilt-in: tilt-in 0.8s cubic-bezier(0.23, 1, 0.32, 1);
+  --animate-scale-in: scale-in 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-float-slow: float-slow 8s ease-in-out infinite;
+  --animate-pulse-glow: pulse-glow 3s ease-in-out infinite;
+  --animate-rotate-slow: rotate-slow 20s linear infinite;
+  --animate-shimmer: shimmer 2s linear infinite;
+  --animate-hero-ring: hero-ring-spin 15s linear infinite;
+  --animate-breathing: breathing 4s ease-in-out infinite;
+}
+
+@custom-variant dark (&:is(.dark *));
+
+@layer base {
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-geist-sans), sans-serif;
+  }
+
+  /* Smooth scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Hide Clerk Branding & Dev Mode Badges safely */
+  .cl-footerActionRight,
+  .cl-developmentBadge,
+  .cl-watermark,
+  div[class*="watermark"] {
+    display: none !important;
+  }
+  
+  /* Safely target only the footer that contains the clerk logo/link, not the whole modal */
+  .cl-card > div:last-child > a[href*="clerk.com"],
+  .cl-card > div:last-child:has(a[href*="clerk.com"]) {
+    display: none !important;
+  }
+
+  /* Custom scrollbar for dark theme */
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+}
+
+/* ===================== */
+/* 3D UTILITY CLASSES    */
+/* ===================== */
+
+/* Perspective container for 3D children */
+.perspective-container {
+  perspective: 1200px;
+  perspective-origin: center;
+}
+
+/* 3D card base */
+.card-3d {
+  transform-style: preserve-3d;
+  transition: transform 0.15s ease-out;
+  will-change: transform;
+}
+
+/* Glow border effect */
+.glow-border {
+  position: relative;
+  overflow: hidden;
+}
+.glow-border::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    rgba(99, 102, 241, 0) 0%,
+    rgba(99, 102, 241, 0.4) 50%,
+    rgba(99, 102, 241, 0) 100%
+  );
+  background-size: 200% 200%;
+  animation: glow-line 3s ease-in-out infinite;
+  -webkit-mask: 
+    linear-gradient(#fff 0 0) content-box, 
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Shimmer overlay */
+.shimmer-effect::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    120deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.03) 50%,
+    transparent 70%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 3s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* Glass card */
+.glass-card {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.glass-card:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Scan line for grid */
+.scan-line {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.5), transparent);
+  animation: grid-scan 4s linear infinite;
+  pointer-events: none;
+}
+
+@media print {
+  body {
+    background-color: white !important;
+    color: black !important;
+  }
+  .custom-print-content, .custom-print-content * {
+    color: #000000 !important;
+    background: transparent !important;
+    border-color: #000000 !important;
+  }
+}
