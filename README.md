@@ -26,15 +26,11 @@
 - [Overview](#-overview)
 - [Data Science & NLP Pipeline](#-data-science--nlp-pipeline)
 - [Architecture](#%EF%B8%8F-architecture)
-- [Key Features](#-key-features)
+- [Key Features (V3)](#-key-features-v3)
 - [Technology Stack](#%EF%B8%8F-technology-stack)
 - [Project Structure](#-project-structure)
 - [Getting Started](#-getting-started)
-  - [Prerequisites](#prerequisites)
-  - [Environment Variables](#environment-variables)
-  - [Local Installation](#local-installation)
 - [Deployment](#%EF%B8%8F-deployment)
-- [Usage Guide](#-usage-guide)
 
 ---
 
@@ -48,12 +44,15 @@ In today's fast-paced market, keeping tabs on competitors is crucial but time-co
 
 At its core, IntelScout is an advanced **Natural Language Processing (NLP)** and **Data Engineering** pipeline. It transforms unstructured web data into structured competitive insights using the following workflow:
 
-1. **Data Collection & ETL:** Playwright operates as a headless crawler, navigating DOM trees and bypassing bot-protections to scrape unstructured text (product specs, pricing, blog posts, about pages) into raw datasets.
-2. **Data Cleaning & Chunking:** The raw text is normalized and split into semantically contiguous chunks (tokens) optimized for the embedding model's context window.
-3. **High-Dimensional Embeddings:** Chunks are passed through NVIDIA's `nv-embedqa-e5-v5` model to generate dense vector embeddings (1024-dimensional floating-point arrays) representing the semantic meaning of the text.
-4. **Vector Space Modeling:** These vectors are stored in **Pinecone**, establishing a high-dimensional vector space.
+1. **Data Collection & ETL:** Playwright operates as a headless crawler, navigating DOM trees and bypassing bot-protections to scrape unstructured text into raw datasets.
+2. **Data Cleaning & Chunking:** The raw text is normalized and split into semantically contiguous chunks (tokens).
+3. **High-Dimensional Embeddings:** Chunks are passed through NVIDIA's `nv-embedqa-e5-v5` model to generate dense vector embeddings (1024-dimensional arrays).
+4. **Vector Space Modeling:** These vectors are stored in **Pinecone**, establishing a high-dimensional vector space. **(V3 Fast-Path Optimized: Database caching reduces vector search load times from 1-2 minutes to < 1.3 seconds).**
 5. **Retrieval-Augmented Generation (RAG):** When generating a Battlecard or Insight, the system queries Pinecone using **Cosine Similarity** algorithms to retrieve the exact text chunks relevant to pricing, weaknesses, or market positioning.
-6. **LLM Inferencing & Sentiment Analysis:** The retrieved context is fed into **Meta Llama 3.3 (70B-Instruct)** along with engineered prompts to perform Sentiment Analysis, SWOT extraction, and predictive modeling on the competitor's behavior.
+6. **V3 Autonomous Multi-Agent Pipeline:**
+   - **Agent 1 (Research & Monitoring):** Extracts pricing, features, messaging, and overall Customer Sentiment (Positive/Neutral/Negative) from the raw text.
+   - **Agent 2 (Change Detection):** Compares the current snapshot against historical snapshots to detect real business shifts or sentiment drops.
+   - **Agent 3 (Strategy Agent):** Drafts an immediate counter-action strategy for executive teams if a High-Threat shift is detected.
 
 ---
 
@@ -71,9 +70,10 @@ graph TD
     NextJS -->|REST API| FastAPI[FastAPI Backend]
     
     FastAPI -->|Playwright| WebScraper[Web Scraper & Crawler]
-    FastAPI -->|Context / Prompts| NVIDIA[NVIDIA NIM Llama 3.3]
+    FastAPI -->|Multi-Agent Pipeline| NVIDIA[NVIDIA NIM Llama 3.3]
     FastAPI -->|Vectors| Pinecone[(Pinecone Vector DB)]
     FastAPI -->|Data| Neon[(Neon PostgreSQL)]
+    FastAPI -->|Push Alerts| Slack[Slack Webhook]
     
     WebScraper -->|Scraped Content| FastAPI
     NVIDIA -->|AI Insights & Battlecards| FastAPI
@@ -81,23 +81,17 @@ graph TD
 
 </div>
 
-### Component Breakdown:
-- **Client (Browser):** Renders the Glassmorphic UI using Framer Motion animations.
-- **Frontend (Next.js):** Handles routing, SSR, and API proxying. Authenticates via Clerk.
-- **Backend (FastAPI):** Orchestrates long-running scraping tasks and AI inferences asynchronously.
-- **Web Scraper (Playwright):** Runs headless browsers to bypass standard bot protections and extract dynamic DOM content.
-- **AI Engine (NVIDIA NIM):** Uses `meta/llama-3.3-70b-instruct` for natural language understanding and `nvidia/nv-embedqa-e5-v5` for high-dimensional embeddings.
-
 ---
 
-## ✨ Key Features
+## ✨ Key Features (V3)
 
-1. 🕵️ **Real-Time Competitor Tracking:** Add any competitor domain and IntelScout will autonomously scrape and analyze their web presence, extracting product pages, pricing, and company updates.
-2. 🧠 **AI-Powered Insights:** Uses advanced LLMs to distill thousands of words of web copy into actionable signals, product changes, and market shifts.
-3. ⚔️ **Dynamic Battlecards:** Instantly generates comparative battlecards showing SWOT (Strengths, Weaknesses, Opportunities, Threats) analysis, pricing models, and key differentiators.
-4. 📊 **Feature Matrix:** Visual side-by-side comparison matrix of your product vs. competitors.
-5. 🔍 **Semantic Search:** Query your entire competitor database using natural language (e.g., "Which competitor has SOC2 compliance?").
-6. 🎨 **Premium Glassmorphic UI:** A stunning, premium dark-mode interface built with Tailwind CSS and Framer Motion for a native app feel.
+1. 🕵️ **V3 Multi-Agent Autonomous Pipeline:** A background cron system that continuously researches, compares, and strategizes against competitors without human intervention.
+2. 📉 **V3 Customer Sentiment Detection:** Extracts customer sentiment (Positive, Neutral, Negative) and confidence scores from scattered web context to alert you if a competitor's users are unhappy.
+3. 🚨 **V3 Slack Webhook Alerts:** Instantly pushes "High Threat" alerts and counter-strategy recommendations directly to your company's Slack channel.
+4. 🧠 **AI-Powered Insights:** Uses advanced LLMs to distill thousands of words of web copy into actionable signals.
+5. ⚔️ **Dynamic Battlecards:** Instantly generates comparative battlecards showing SWOT analysis, pricing models, and key differentiators.
+6. ⚡ **DB Fast-Path Optimization:** Intelligent caching of raw context locally in PostgreSQL to bypass expensive embedding generation, drastically reducing LLM inference latency.
+7. 🎨 **Premium Glassmorphic UI:** A stunning, premium dark-mode interface built with Tailwind CSS and Framer Motion for a native app feel.
 
 ---
 
@@ -110,7 +104,7 @@ graph TD
 | **Auth** | Clerk | Secure user authentication |
 | **Backend** | FastAPI, Python 3.12, `uv` | High-performance async API |
 | **Web Scraping**| Playwright, BeautifulSoup4 | DOM parsing and headless browsing |
-| **AI / LLM** | NVIDIA NIM (Llama 3.3) | Natural Language Processing |
+| **AI / LLM** | NVIDIA NIM (Llama 3.3) | Multi-Agent NLP Pipeline |
 | **Vector DB** | Pinecone | Semantic search & Embeddings |
 | **Relational DB**| Neon (PostgreSQL) | Persistent storage |
 
@@ -127,7 +121,7 @@ IntelScout/
 │   └── package.json            # Node Dependencies
 ├── backend/                    # FastAPI Server
 │   ├── src/routers/            # API Endpoints
-│   ├── src/services/           # AI, Scraping, & DB Logic
+│   ├── src/services/           # AI Multi-Agent Pipeline & Scraping
 │   ├── src/tasks/              # Background Task Definitions
 │   ├── main.py                 # FastAPI Application Entrypoint
 │   └── pyproject.toml          # Python Dependencies (uv managed)
@@ -154,6 +148,7 @@ You will need to set up `.env` files in both the frontend and backend directorie
 DATABASE_URL="postgresql+asyncpg://user:password@endpoint/dbname"
 PINECONE_API_KEY="your_pinecone_api_key"
 NVIDIA_API_KEY="your_nvidia_nim_api_key"
+SLACK_WEBHOOK_URL="optional_slack_webhook_for_alerts"
 ```
 
 **`frontend/.env.local`**
@@ -196,7 +191,7 @@ npm run dev
 IntelScout includes a `render.yaml` Blueprint for 1-click deployment to Render.
 - Connect your GitHub repository to Render via "New Blueprint Instance".
 - The Blueprint automatically provisions the Python environment using `uv` and starts the Uvicorn server.
-- **Ensure you add your Environment Variables** (`NVIDIA_API_KEY`, `PINECONE_API_KEY`, `DATABASE_URL`) in the Render dashboard.
+- **Ensure you add your Environment Variables** (`NVIDIA_API_KEY`, `PINECONE_API_KEY`, `DATABASE_URL`, `SLACK_WEBHOOK_URL`) in the Render dashboard.
 
 ### 2. Deploying the Frontend (Vercel)
 The frontend is heavily optimized for Vercel.
@@ -204,15 +199,6 @@ The frontend is heavily optimized for Vercel.
 - Set the **Root Directory** to `frontend`.
 - Add your Clerk API keys as Environment Variables.
 - Set `NEXT_PUBLIC_API_URL` to your deployed Render backend URL (e.g., `https://intelscout-backend.onrender.com`).
-
----
-
-## 🎮 Usage Guide
-
-1. **Dashboard Overview:** View high-level metrics and recent insights.
-2. **Add Competitors:** Navigate to the "Competitors" tab and add a competitor's domain URL. The backend will immediately begin scraping their site.
-3. **Generate Battlecards:** Navigate to the "Battlecards" tab to generate SWOT analyses based on the scraped context.
-4. **View Insights:** Check the "Insights" feed for AI-generated observations regarding pricing changes, new feature releases, or marketing shifts.
 
 ---
 
