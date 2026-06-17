@@ -55,8 +55,12 @@ async def change_detection_agent(company_name: str, old_state: dict, new_state: 
     CURRENT STATE:
     {json.dumps(new_state, indent=2)}
     
-    Identify what changed. If nothing significant changed, state that.
-    If there are changes, analyze:
+    CRITICAL RULE: Values like "Not found", "Unknown", or "Error" mean our data scraper missed the information. 
+    DO NOT treat changes between "Error" and "Not found" as a business change! 
+    ONLY generate an alert if there is a real, tangible change in business strategy (e.g., a real price changed, a real feature was added).
+    
+    Identify what actually changed in the business. If nothing significant changed, or if it's just missing data, set "has_changes" to false.
+    If there are real business changes, analyze:
     1. What changed?
     2. Why did it change?
     3. What is the impact?
