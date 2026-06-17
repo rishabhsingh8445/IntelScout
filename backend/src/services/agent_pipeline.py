@@ -4,6 +4,35 @@ from sqlalchemy import select, desc
 from src.database import AsyncSessionLocal
 from src.models import Competitor, CompetitorSnapshot, Alert
 from src.services.ai import client, FAST_MODEL, MODEL_NAME, llm_semaphore
+import httpx
+import os
+
+async def send_slack_alert(alert: Alert, company_name: str):
+    webhook_url = os.getenv("SLACK_WEBHOOK_URL")
+    if not webhook_url:
+        print(f"[SLACK SIMULATION] Would have sent alert to Slack for {company_name}")
+        return
+        
+    color = "#FF0000" if alert.threat_level == "High" else "#FFA500" if alert.threat_level == "Medium" else "#00FF00"
+    payload = {
+        "text": f"🚨 *New Intelligence Alert: {company_name}* 🚨",
+        "attachments": [
+            {
+                "color": color,
+                "fields": [
+                    {"title": "Threat Level", "value": alert.threat_level, "short": True},
+                    {"title": "Confidence", "value": f"{alert.confidence_score * 100:.1f}%", "short": True},
+                    {"title": "Detected Change", "value": alert.detected_changes, "short": False},
+                    {"title": "Strategy Recommendation", "value": alert.recommended_action, "short": False}
+                ]
+            }
+        ]
+    }
+    try:
+        async with httpx.AsyncClient() as c:
+            await c.post(webhook_url, json=payload, timeout=5.0)
+    except Exception as e:
+        print(f"Failed to send Slack alert: {e}")
 
 async def research_and_monitoring_agent(company_name: str, raw_context: str) -> dict:
     """
@@ -16,13 +45,15 @@ async def research_and_monitoring_agent(company_name: str, raw_context: str) -> 
     RAW DATA:
     {raw_context[:12000]}
     
-    Extract exactly 3 key areas:
+    Extract exactly 5 key areas:
     1. Pricing Data (Any mention of price, tiers, discounts)
     2. Feature List (Any mention of new or core features)
     3. Messaging (How they position themselves, slogans, target audience)
+    4. Sentiment (Overall customer sentiment. Must be exactly one of: "Positive", "Neutral", "Negative")
+    5. Sentiment Reason (Why the sentiment is what it is, e.g. "Users complaining about bugs")
     
-    Output ONLY a valid JSON object with the keys "pricing", "features", and "messaging".
-    If data is missing for a key, output "Not found".
+    Output ONLY a valid JSON object with the keys "pricing", "features", "messaging", "sentiment", "sentiment_score" (float between 0.0 and 1.0 indicating intensity), and "sentiment_reason".
+    If data is missing for a key, output "Not found" (or 0.5 for score).
     """
     try:
         async with llm_semaphore:
@@ -39,7 +70,7 @@ async def research_and_monitoring_agent(company_name: str, raw_context: str) -> 
             return json.loads(match.group(0))
     except Exception as e:
         print(f"Monitoring Agent Error: {e}")
-    return {"pricing": "Error", "features": "Error", "messaging": "Error"}
+    return {"pricing": "Error", "features": "Error", "messaging": "Error", "sentiment": "Neutral", "sentiment_score": 0.5, "sentiment_reason": "Error parsing data"}
 
 async def change_detection_agent(company_name: str, old_state: dict, new_state: dict) -> dict:
     """
@@ -60,8 +91,8 @@ async def change_detection_agent(company_name: str, old_state: dict, new_state: 
     ONLY generate an alert if there is a real, tangible change in business strategy (e.g., a real price changed, a real feature was added).
     
     Identify what actually changed in the business. If nothing significant changed, or if it's just missing data, set "has_changes" to false.
-    If there are real business changes, analyze:
-    1. What changed?
+    If there are real business changes, or if Customer Sentiment shifted (e.g. from Positive to Negative), analyze:
+    1. What changed (in business or in customer sentiment)?
     2. Why did it change?
     3. What is the impact?
     4. What is the possible goal of this change?
@@ -149,6 +180,9 @@ async def run_autonomous_pipeline(competitor_id: int):
             pricing_data=current_state.get("pricing"),
             feature_list=current_state.get("features"),
             messaging=current_state.get("messaging"),
+            sentiment=current_state.get("sentiment"),
+            sentiment_score=current_state.get("sentiment_score"),
+            sentiment_reason=current_state.get("sentiment_reason"),
             raw_context=comp.raw_context[:5000] # store partial context
         )
         
@@ -168,11 +202,13 @@ async def run_autonomous_pipeline(competitor_id: int):
         old_state_dict = {
             "pricing": prev_snapshot.pricing_data,
             "features": prev_snapshot.feature_list,
-            "messaging": prev_snapshot.messaging
+            "messaging": prev_snapshot.messaging,
+            "sentiment": prev_snapshot.sentiment,
+            "sentiment_reason": prev_snapshot.sentiment_reason
         }
     else:
         # If no previous snapshot, we assume everything is "new" but no massive change event
-        old_state_dict = {"pricing": "Unknown", "features": "Unknown", "messaging": "Unknown"}
+        old_state_dict = {"pricing": "Unknown", "features": "Unknown", "messaging": "Unknown", "sentiment": "Neutral"}
         
     # 2. Change Detection Phase
     print(f"Running Change Detection for {comp.name}...")
@@ -196,5 +232,7 @@ async def run_autonomous_pipeline(competitor_id: int):
             session.add(new_alert)
             await session.commit()
             print(f"Alert generated for {comp.name}.")
+        
+        await send_slack_alert(new_alert, comp.name)
     else:
         print(f"No significant changes detected for {comp.name}.")

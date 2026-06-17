@@ -65,6 +65,9 @@ class CompetitorSnapshot(Base):
     pricing_data = Column(Text, nullable=True)
     feature_list = Column(Text, nullable=True)
     messaging = Column(Text, nullable=True)
+    sentiment = Column(String, nullable=True)
+    sentiment_score = Column(Float, nullable=True)
+    sentiment_reason = Column(Text, nullable=True)
     raw_context = Column(Text, nullable=True)
 
     competitor = relationship("Competitor", back_populates="snapshots")

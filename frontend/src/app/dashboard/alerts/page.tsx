@@ -24,6 +24,9 @@ interface Snapshot {
   pricing_data: string;
   feature_list: string;
   messaging: string;
+  sentiment?: string;
+  sentiment_score?: number;
+  sentiment_reason?: string;
 }
 import { useAuth } from "@clerk/nextjs";
 
@@ -80,6 +83,18 @@ export default function AlertsPage() {
     if (level === "High") return "text-red-500 bg-red-500/10 border-red-500/20";
     if (level === "Medium") return "text-orange-500 bg-orange-500/10 border-orange-500/20";
     return "text-green-500 bg-green-500/10 border-green-500/20";
+  };
+
+  const getSentimentBadge = (sentiment?: string, score?: number) => {
+    if (!sentiment) return null;
+    const scoreText = score ? ` → ${score.toFixed(2)}` : "";
+    if (sentiment.toLowerCase() === "positive") {
+      return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-500/10 text-green-400 border border-green-500/20">🟢 {sentiment}{scoreText}</span>;
+    }
+    if (sentiment.toLowerCase() === "negative") {
+      return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">🔴 {sentiment}{scoreText}</span>;
+    }
+    return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">🟡 {sentiment}{scoreText}</span>;
   };
 
   if (loading && !competitors.length) {
@@ -182,6 +197,15 @@ export default function AlertsPage() {
                         <h5 className="text-xs font-semibold text-white/40 uppercase">Messaging</h5>
                         <p className="text-sm text-white/80 line-clamp-2">{snap.messaging}</p>
                       </div>
+                      {snap.sentiment && (
+                        <div className="pt-2 border-t border-white/10 mt-2">
+                          <h5 className="text-xs font-semibold text-white/40 uppercase mb-1">Customer Sentiment</h5>
+                          <div className="mb-1">{getSentimentBadge(snap.sentiment, snap.sentiment_score)}</div>
+                          {snap.sentiment_reason && (
+                            <p className="text-xs text-white/60 italic leading-relaxed">"{snap.sentiment_reason}"</p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))
