@@ -20,12 +20,12 @@ async def background_watcher_job():
         watched_comps = result.scalars().all()
         
     for comp in watched_comps:
-        print(f"[CRON] Rescraping watched competitor: {comp.name}")
+        print(f"[CRON] Running V2 Autonomous Agent Pipeline for: {comp.name}")
         # In production, this would be pushed to a Celery worker queue
         # For now, we run it asynchronously in the scheduler
         await asyncio.to_thread(run_scraping_job, comp.id, "Short")
         
-    print("[CRON] Watcher job finished.")
+    print("[CRON] Autonomous Pipeline watcher job finished.")
 
 def start_scheduler():
     # Schedule the job to run every 6 hours

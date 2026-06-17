@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Enum, JSON, Boolean
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Enum, JSON, Boolean, Float
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from .database import Base
@@ -26,6 +26,8 @@ class Competitor(Base):
 
     items = relationship("ScrapedItem", back_populates="competitor", cascade="all, delete-orphan")
     insights = relationship("Insight", back_populates="competitor", cascade="all, delete-orphan")
+    snapshots = relationship("CompetitorSnapshot", back_populates="competitor", cascade="all, delete-orphan")
+    alerts = relationship("Alert", back_populates="competitor", cascade="all, delete-orphan")
 
 class ScrapedItem(Base):
     __tablename__ = "scraped_items"
@@ -53,3 +55,30 @@ class Insight(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     competitor = relationship("Competitor", back_populates="insights")
+
+class CompetitorSnapshot(Base):
+    __tablename__ = "competitor_snapshots"
+
+    id = Column(Integer, primary_key=True, index=True)
+    competitor_id = Column(Integer, ForeignKey("competitors.id", ondelete="CASCADE"), nullable=False)
+    snapshot_date = Column(DateTime(timezone=True), server_default=func.now())
+    pricing_data = Column(Text, nullable=True)
+    feature_list = Column(Text, nullable=True)
+    messaging = Column(Text, nullable=True)
+    raw_context = Column(Text, nullable=True)
+
+    competitor = relationship("Competitor", back_populates="snapshots")
+
+class Alert(Base):
+    __tablename__ = "alerts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    competitor_id = Column(Integer, ForeignKey("competitors.id", ondelete="CASCADE"), nullable=False)
+    detected_changes = Column(Text, nullable=False)
+    possible_goal = Column(Text, nullable=True)
+    threat_level = Column(String, nullable=False) # e.g., "Low", "Medium", "High"
+    recommended_action = Column(Text, nullable=True)
+    confidence_score = Column(Float, default=0.0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    competitor = relationship("Competitor", back_populates="alerts")

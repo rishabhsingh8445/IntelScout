@@ -5,6 +5,7 @@ from src.database import AsyncSessionLocal
 from src.models import Competitor
 from duckduckgo_search import DDGS
 from src.services.ai import generate_deep_dive_report, generate_research_plan
+from src.services.agent_pipeline import run_autonomous_pipeline
 from playwright.async_api import async_playwright
 
 fetch_semaphore = asyncio.Semaphore(5)
@@ -164,6 +165,9 @@ async def _inner_run_scraping_job(competitor_id: int, report_type: str = "Short"
                     session.add(new_ins)
                     
                 await session.commit()
+                
+        # 5. Execute V2 Autonomous Agent Pipeline
+        await run_autonomous_pipeline(competitor_id)
 
     except Exception as e:
         print(f"Exception in deep research job: {e}")

@@ -7,7 +7,7 @@ if sys.platform == "win32":
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .database import engine, Base
-from .routers import competitors, battlecards, matrix, briefing, search
+from .routers import competitors, battlecards, matrix, briefing, search, alerts
 
 app = FastAPI(
     title="IntelScout API",
@@ -39,6 +39,7 @@ app.include_router(battlecards.router)
 app.include_router(matrix.router)
 app.include_router(briefing.router)
 app.include_router(search.router)
+app.include_router(alerts.router)
 
 @app.get("/api/health")
 async def health_check():
