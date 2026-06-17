@@ -25,8 +25,12 @@ interface Snapshot {
   feature_list: string;
   messaging: string;
 }
+import { useAuth } from "@clerk/nextjs";
 
 export default function AlertsPage() {
+  const { userId } = useAuth();
+  const headers = { 'x-user-id': userId };
+
   const [competitors, setCompetitors] = useState<any[]>([]);
   const [selectedCompId, setSelectedCompId] = useState<number | null>(null);
   const [alerts, setAlerts] = useState<Alert[]>([]);
@@ -34,8 +38,10 @@ export default function AlertsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchCompetitors();
-  }, []);
+    if (userId) {
+      fetchCompetitors();
+    }
+  }, [userId]);
 
   useEffect(() => {
     if (selectedCompId) {
@@ -45,7 +51,7 @@ export default function AlertsPage() {
 
   const fetchCompetitors = async () => {
     try {
-      const res = await axios.get("http://localhost:8000/api/competitors");
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/competitors`, { headers });
       setCompetitors(res.data);
       if (res.data.length > 0) {
         setSelectedCompId(res.data[0].id);
@@ -60,7 +66,7 @@ export default function AlertsPage() {
   const fetchAlerts = async (id: number) => {
     setLoading(true);
     try {
-      const res = await axios.get(`http://localhost:8000/api/alerts/${id}`);
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/alerts/${id}`, { headers });
       setAlerts(res.data.alerts);
       setSnapshots(res.data.snapshots);
     } catch (err) {
