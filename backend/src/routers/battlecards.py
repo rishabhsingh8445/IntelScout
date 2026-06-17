@@ -15,6 +15,24 @@ class BattlecardRequest(BaseModel):
 from playwright.async_api import async_playwright
 
 async def scrape_company_context(name: str, timeframe: str, user_id: str) -> str:
+    from ..database import AsyncSessionLocal
+    from ..models import Competitor
+    from sqlalchemy import select
+    
+    # ⚡ FAST PATH: Check if we have this competitor in our DB
+    async with AsyncSessionLocal() as session:
+        comp = (await session.execute(
+            select(Competitor).where(
+                Competitor.name.ilike(name), 
+                Competitor.user_id == user_id
+            )
+        )).scalar_one_or_none()
+        
+        if comp and comp.raw_context:
+            print(f"[FAST-PATH] Using cached DB raw_context for {name}")
+            return comp.raw_context
+
+    # 🐢 SLOW PATH: Ad-hoc web scrape
     queries = await generate_research_plan(name, timeframe)
     all_snippets = []
     urls_to_scrape = []
@@ -63,17 +81,19 @@ async def scrape_company_context(name: str, timeframe: str, user_id: str) -> str
         results = await asyncio.gather(*(fetch_page(url) for url in urls_to_scrape))
         scraped_contexts = [r for r in results if r]
             
-        if scraped_contexts:
-            await upsert_multiple_contexts(competitor_name=name, user_id=user_id, contexts=scraped_contexts)
-
-
+        # SKIPPED: upsert_multiple_contexts to save time for ad-hoc queries
+        
     except Exception as e:
         print(f"Playwright error: {e}")
+        scraped_contexts = []
 
-    # Query the Vector DB for the most relevant context instead of dumping all text
-    rag_context = await query_context(competitor_name=name, user_id=user_id, query="What are the key products, pricing, features, target audience, and recent announcements?")
+    # SKIPPED: query_context from vector db to save time
+    
+    full_scraped_text = ""
+    for ctx in scraped_contexts:
+        full_scraped_text += ctx["content"][:2000] + "\n\n"
 
-    return "--- SNIPPETS ---\n" + "\n\n".join(all_snippets) + "\n\n--- RAG RETRIEVED CONTEXT ---\n" + rag_context
+    return "--- SNIPPETS ---\n" + "\n\n".join(all_snippets) + "\n\n--- SCRAPED CONTEXT ---\n" + full_scraped_text
 
 battlecard_cache = {}
 
