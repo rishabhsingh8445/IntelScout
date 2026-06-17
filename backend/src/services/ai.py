@@ -11,7 +11,7 @@ FAST_MODEL = "meta/llama-3.3-70b-instruct"
 import json
 import asyncio
 
-llm_semaphore = asyncio.Semaphore(10)
+llm_semaphore = asyncio.Semaphore(1)
 
 async def generate_research_plan(company_name: str, timeframe: str) -> list[str]:
     prompt = f"""
