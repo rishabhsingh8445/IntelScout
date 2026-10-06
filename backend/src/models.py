@@ -21,6 +21,8 @@ class Competitor(Base):
     raw_context = Column(Text, nullable=True)
     description = Column(Text, nullable=True)
     is_watched = Column(Boolean, default=False)
+    scrape_status = Column(String, nullable=False, default="pending")
+    scrape_error = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
@@ -33,7 +35,7 @@ class ScrapedItem(Base):
     __tablename__ = "scraped_items"
 
     id = Column(Integer, primary_key=True, index=True)
-    competitor_id = Column(Integer, ForeignKey("competitors.id", ondelete="CASCADE"), nullable=False)
+    competitor_id = Column(Integer, ForeignKey("competitors.id", ondelete="CASCADE"), nullable=False, index=True)
     source_type = Column(Enum(SourceType), nullable=False)
     url = Column(String, nullable=False)
     title = Column(String, nullable=True)
@@ -47,7 +49,7 @@ class Insight(Base):
     __tablename__ = "insights"
 
     id = Column(Integer, primary_key=True, index=True)
-    competitor_id = Column(Integer, ForeignKey("competitors.id", ondelete="CASCADE"), nullable=False)
+    competitor_id = Column(Integer, ForeignKey("competitors.id", ondelete="CASCADE"), nullable=False, index=True)
     title = Column(String, nullable=False)
     summary = Column(Text, nullable=False)
     confidence_score = Column(Integer, default=0)
@@ -60,7 +62,7 @@ class CompetitorSnapshot(Base):
     __tablename__ = "competitor_snapshots"
 
     id = Column(Integer, primary_key=True, index=True)
-    competitor_id = Column(Integer, ForeignKey("competitors.id", ondelete="CASCADE"), nullable=False)
+    competitor_id = Column(Integer, ForeignKey("competitors.id", ondelete="CASCADE"), nullable=False, index=True)
     snapshot_date = Column(DateTime(timezone=True), server_default=func.now())
     pricing_data = Column(Text, nullable=True)
     feature_list = Column(Text, nullable=True)
@@ -76,7 +78,7 @@ class Alert(Base):
     __tablename__ = "alerts"
 
     id = Column(Integer, primary_key=True, index=True)
-    competitor_id = Column(Integer, ForeignKey("competitors.id", ondelete="CASCADE"), nullable=False)
+    competitor_id = Column(Integer, ForeignKey("competitors.id", ondelete="CASCADE"), nullable=False, index=True)
     detected_changes = Column(Text, nullable=False)
     possible_goal = Column(Text, nullable=True)
     threat_level = Column(String, nullable=False) # e.g., "Low", "Medium", "High"

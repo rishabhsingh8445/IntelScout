@@ -1,4 +1,7 @@
-from src.services.ai import client, MODEL_NAME
+from src.services.ai import client, MODEL_NAME, llm_semaphore
+import logging
+
+logger = logging.getLogger(__name__)
 
 async def generate_future_predictions(company_name: str, insights: list[dict]) -> str:
     """
@@ -24,13 +27,15 @@ async def generate_future_predictions(company_name: str, insights: list[dict]) -
     """
     
     try:
-        response = await client.chat.completions.create(
-            model=MODEL_NAME,
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=600,
-            temperature=0.4
-        )
+        async with llm_semaphore:
+            response = await client.chat.completions.create(
+                model=MODEL_NAME,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=600,
+                temperature=0.4,
+                timeout=45.0,
+            )
         return response.choices[0].message.content
     except Exception as e:
-        print(f"Predictive Engine Error: {e}")
-        return "Failed to generate predictions."
+        logger.warning("Predictive Engine Error: %s", e)
+        return "Failed to generate predictions due to temporary AI service unavailability."

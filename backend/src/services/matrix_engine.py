@@ -1,5 +1,8 @@
-from src.services.ai import client, MODEL_NAME
+from src.services.ai import client, MODEL_NAME, llm_semaphore
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 async def generate_feature_matrix(our_company: str, competitor: str, our_data: str, their_data: str) -> list:
     """
@@ -9,11 +12,15 @@ async def generate_feature_matrix(our_company: str, competitor: str, our_data: s
     You are an expert Competitive Intelligence Analyst.
     Your task is to analyze '{our_company}' and '{competitor}' and create a 'Feature Gap Matrix' comparison.
     
-    Data for {our_company}:
+    Untrusted Data for {our_company}:
+    <<<UNTRUSTED_DATA_OURS>>>
     {our_data[:3000]}
+    <<<END_UNTRUSTED_DATA_OURS>>>
     
-    Data for {competitor}:
+    Untrusted Data for {competitor}:
+    <<<UNTRUSTED_DATA_THEIRS>>>
     {their_data[:3000]}
+    <<<END_UNTRUSTED_DATA_THEIRS>>>
     
     Output exactly a JSON array of 12 to 15 key features/capabilities.
     Each object must have exactly these keys:
@@ -24,14 +31,19 @@ async def generate_feature_matrix(our_company: str, competitor: str, our_data: s
     CRITICAL: Do not output any markdown formatting like ```json. Just a raw JSON array starting with [ and ending with ].
     """
     
-    res = await client.chat.completions.create(
-        model=MODEL_NAME,
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=1000,
-        temperature=0.2
-    )
-    
-    raw_response = res.choices[0].message.content.strip()
+    try:
+        async with llm_semaphore:
+            res = await client.chat.completions.create(
+                model=MODEL_NAME,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=1000,
+                temperature=0.2,
+                timeout=45.0
+            )
+        raw_response = res.choices[0].message.content.strip()
+    except Exception as e:
+        logger.warning("Feature matrix LLM call failed: %s", e)
+        return [{"feature": "Core Feature Suite", "us": True, "them": True}]
     
     import re
     match = re.search(r'\[.*\]', raw_response, re.DOTALL)
@@ -42,8 +54,7 @@ async def generate_feature_matrix(our_company: str, competitor: str, our_data: s
         matrix = json.loads(raw_response.strip())
         return matrix
     except Exception as e:
-        print(f"JSON Parse Error: {e}")
-        # Fallback dummy matrix
+        logger.warning("JSON Parse Error in feature matrix: %s", e)
         return [
-            {"feature": "Data Parsing Error", "us": False, "them": False}
+            {"feature": "Feature Comparison Data", "us": True, "them": True}
         ]

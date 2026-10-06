@@ -4,16 +4,15 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import AnimatedCard from "@/components/AnimatedCard";
 import AnimatedText from "@/components/AnimatedText";
-import axios from "axios";
 import { useAuth } from "@clerk/nextjs";
+import { apiGet, apiPost } from "@/lib/api";
 import { Loader2, ArrowRightLeft, Building2, Search, Zap, LayoutGrid, CheckCircle2, Download } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { toPng } from "html-to-image";
 
 export default function MatrixPage() {
-  const { userId } = useAuth();
-  const headers = { 'x-user-id': userId };
+  const { getToken, isLoaded } = useAuth();
 
   const [competitors, setCompetitors] = useState<{name: string}[]>([]);
   const [compA, setCompA] = useState("");
@@ -23,13 +22,11 @@ export default function MatrixPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    // Fetch competitors to populate suggestions
-    axios.get(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/competitors`, { headers })
-      .then((res) => {
-        setCompetitors(res.data || []);
-      })
+    if (!isLoaded) return;
+    apiGet<{ name: string }[]>(getToken, "/api/competitors")
+      .then((data) => setCompetitors(data || []))
       .catch((err) => console.error("Failed to fetch competitors", err));
-  }, []);
+  }, [isLoaded, getToken]);
 
   const handleCompare = async () => {
     if (!compA.trim() || !compB.trim()) {
@@ -40,11 +37,11 @@ export default function MatrixPage() {
     setLoading(true);
     setMatrixResult("");
     try {
-      const res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/matrix`, {
+      const res = await apiPost<{ matrix: string }>(getToken, "/api/matrix", {
         our_company: compA,
         competitor: compB
-      }, { headers });
-      setMatrixResult(res.data.matrix);
+      });
+      setMatrixResult(res.matrix);
     } catch (err) {
       console.error(err);
       setError("Failed to generate matrix. The backend might be busy or unavailable.");

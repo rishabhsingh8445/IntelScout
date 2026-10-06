@@ -7,10 +7,16 @@ from src.services.ai import client, FAST_MODEL, MODEL_NAME, llm_semaphore
 import httpx
 import os
 
+from src.security.url_validation import is_safe_http_url
+from src.config import settings
+import logging
+
+logger = logging.getLogger(__name__)
+
 async def send_slack_alert(alert: Alert, company_name: str):
     webhook_url = os.getenv("SLACK_WEBHOOK_URL")
-    if not webhook_url:
-        print(f"[SLACK SIMULATION] Would have sent alert to Slack for {company_name}")
+    if not webhook_url or not is_safe_http_url(webhook_url):
+        logger.info("[SLACK SIMULATION] Would have sent alert to Slack for %s", company_name)
         return
         
     color = "#FF0000" if alert.threat_level == "High" else "#FFA500" if alert.threat_level == "Medium" else "#00FF00"
@@ -29,10 +35,10 @@ async def send_slack_alert(alert: Alert, company_name: str):
         ]
     }
     try:
-        async with httpx.AsyncClient() as c:
+        async with httpx.AsyncClient(verify=settings.HTTP_VERIFY_SSL) as c:
             await c.post(webhook_url, json=payload, timeout=5.0)
     except Exception as e:
-        print(f"Failed to send Slack alert: {e}")
+        logger.warning("Failed to send Slack alert: %s", e)
 
 async def research_and_monitoring_agent(company_name: str, raw_context: str) -> dict:
     """
@@ -42,8 +48,10 @@ async def research_and_monitoring_agent(company_name: str, raw_context: str) -> 
     You are an elite Competitive Monitoring Agent.
     Your task is to extract the current state of '{company_name}' based on the raw research data provided.
     
-    RAW DATA:
+    UNTRUSTED RAW DATA:
+    <<<UNTRUSTED_CONTEXT>>>
     {raw_context[:12000]}
+    <<<END_UNTRUSTED_CONTEXT>>>
     
     Extract exactly 5 key areas:
     1. Pricing Data (Any mention of price, tiers, discounts)
@@ -61,7 +69,8 @@ async def research_and_monitoring_agent(company_name: str, raw_context: str) -> 
                 model=FAST_MODEL,
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=600,
-                temperature=0.1
+                temperature=0.1,
+                timeout=45.0
             )
         content = res.choices[0].message.content.strip()
         import re
@@ -69,7 +78,7 @@ async def research_and_monitoring_agent(company_name: str, raw_context: str) -> 
         if match:
             return json.loads(match.group(0))
     except Exception as e:
-        print(f"Monitoring Agent Error: {e}")
+        logger.warning("Monitoring Agent Error: %s", e)
     return {"pricing": "Error", "features": "Error", "messaging": "Error", "sentiment": "Neutral", "sentiment_score": 0.5, "sentiment_reason": "Error parsing data"}
 
 async def change_detection_agent(company_name: str, old_state: dict, new_state: dict) -> dict:
@@ -113,7 +122,8 @@ async def change_detection_agent(company_name: str, old_state: dict, new_state: 
                 model=MODEL_NAME,
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=800,
-                temperature=0.2
+                temperature=0.2,
+                timeout=45.0
             )
         content = res.choices[0].message.content.strip()
         import re
@@ -121,7 +131,7 @@ async def change_detection_agent(company_name: str, old_state: dict, new_state: 
         if match:
             return json.loads(match.group(0))
     except Exception as e:
-        print(f"Change Detection Error: {e}")
+        logger.warning("Change Detection Error: %s", e)
     
     return {"has_changes": False}
 
@@ -150,11 +160,12 @@ async def strategy_agent(company_name: str, changes_detected: dict) -> str:
                 model=MODEL_NAME,
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=400,
-                temperature=0.4
+                temperature=0.4,
+                timeout=45.0
             )
         return res.choices[0].message.content.strip()
     except Exception as e:
-        print(f"Strategy Agent Error: {e}")
+        logger.warning("Strategy Agent Error: %s", e)
         return "Error generating strategy."
 
 async def run_autonomous_pipeline(competitor_id: int):
@@ -166,10 +177,10 @@ async def run_autonomous_pipeline(competitor_id: int):
     async with AsyncSessionLocal() as session:
         comp = (await session.execute(select(Competitor).where(Competitor.id == competitor_id))).scalar_one_or_none()
         if not comp or not comp.raw_context:
-            print("No competitor or raw context found.")
+            logger.warning("No competitor or raw context found for competitor_id=%s", competitor_id)
             return
 
-        print(f"Starting Agent Pipeline for {comp.name}...")
+        logger.info("Starting Agent Pipeline for %s...", comp.name)
 
         # 1. Research & Monitoring Phase
         current_state = await research_and_monitoring_agent(comp.name, comp.raw_context)
@@ -211,12 +222,12 @@ async def run_autonomous_pipeline(competitor_id: int):
         old_state_dict = {"pricing": "Unknown", "features": "Unknown", "messaging": "Unknown", "sentiment": "Neutral"}
         
     # 2. Change Detection Phase
-    print(f"Running Change Detection for {comp.name}...")
+    logger.info("Running Change Detection for %s...", comp.name)
     changes = await change_detection_agent(comp.name, old_state_dict, current_state)
     
     if changes.get("has_changes") and prev_snapshot:
         # 3. Strategy Phase
-        print(f"Running Strategy Agent for {comp.name}...")
+        logger.info("Running Strategy Agent for %s...", comp.name)
         recommended_action = await strategy_agent(comp.name, changes)
         
         # Save Alert
@@ -231,8 +242,8 @@ async def run_autonomous_pipeline(competitor_id: int):
             )
             session.add(new_alert)
             await session.commit()
-            print(f"Alert generated for {comp.name}.")
+            logger.info("Alert generated for %s.", comp.name)
         
         await send_slack_alert(new_alert, comp.name)
     else:
-        print(f"No significant changes detected for {comp.name}.")
+        logger.info("No significant changes detected for %s.", comp.name)

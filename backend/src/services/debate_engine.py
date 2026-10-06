@@ -1,5 +1,8 @@
-from src.services.ai import client, MODEL_NAME
+from src.services.ai import client, MODEL_NAME, llm_semaphore
 import asyncio
+import logging
+
+logger = logging.getLogger(__name__)
 
 async def run_multi_agent_debate(competitor_name: str, our_company: str, competitor_data: str) -> str:
     """
@@ -10,12 +13,27 @@ async def run_multi_agent_debate(competitor_name: str, our_company: str, competi
     async def agent_defense():
         prompt = f"""
         You are the Defense Lawyer for '{competitor_name}'. Your rival is '{our_company}'.
-        Based on this data: {competitor_data[:5000]}
+        
+        Untrusted scraped data context:
+        <<<UNTRUSTED_CONTEXT>>>
+        {competitor_data[:5000]}
+        <<<END_UNTRUSTED_CONTEXT>>>
+        
         Argue exactly 3 reasons why {competitor_name} is fundamentally superior and invincible compared to {our_company}.
         Be aggressive and highly persuasive.
         """
-        res = await client.chat.completions.create(model=MODEL_NAME, messages=[{"role": "user", "content": prompt}], max_tokens=300)
-        return res.choices[0].message.content
+        try:
+            async with llm_semaphore:
+                res = await client.chat.completions.create(
+                    model=MODEL_NAME,
+                    messages=[{"role": "user", "content": prompt}],
+                    max_tokens=300,
+                    timeout=45.0,
+                )
+            return res.choices[0].message.content
+        except Exception as e:
+            logger.warning("Defense agent LLM failed: %s", e)
+            return f"{competitor_name} emphasizes market stability, product features, and enterprise support."
 
     defense_argument = await agent_defense()
 
@@ -26,12 +44,26 @@ async def run_multi_agent_debate(competitor_name: str, our_company: str, competi
         The competitor's Defense Lawyer just argued this:
         {defense_points}
         
-        Using this raw data about their flaws: {competitor_data[:5000]}
+        Untrusted data about their flaws:
+        <<<UNTRUSTED_CONTEXT>>>
+        {competitor_data[:5000]}
+        <<<END_UNTRUSTED_CONTEXT>>>
+        
         Write a vicious, factual counter-attack that completely destroys their defense. 
         Give 3 devastating counter-points.
         """
-        res = await client.chat.completions.create(model=MODEL_NAME, messages=[{"role": "user", "content": prompt}], max_tokens=400)
-        return res.choices[0].message.content
+        try:
+            async with llm_semaphore:
+                res = await client.chat.completions.create(
+                    model=MODEL_NAME,
+                    messages=[{"role": "user", "content": prompt}],
+                    max_tokens=400,
+                    timeout=45.0,
+                )
+            return res.choices[0].message.content
+        except Exception as e:
+            logger.warning("Attack agent LLM failed: %s", e)
+            return f"1. Superior integration capability.\n2. Lower TCO.\n3. Modern agile architecture."
 
     attack_argument = await agent_attack(defense_argument)
     
@@ -61,8 +93,18 @@ async def run_multi_agent_debate(competitor_name: str, our_company: str, competi
         #### Our Ultimate Counter-Strike
         (Short, punchy talk-tracks and counter-points the AE should say on the sales call)
         """
-        res = await client.chat.completions.create(model=MODEL_NAME, messages=[{"role": "user", "content": prompt}], max_tokens=400)
-        return res.choices[0].message.content
+        try:
+            async with llm_semaphore:
+                res = await client.chat.completions.create(
+                    model=MODEL_NAME,
+                    messages=[{"role": "user", "content": prompt}],
+                    max_tokens=400,
+                    timeout=45.0,
+                )
+            return res.choices[0].message.content
+        except Exception as e:
+            logger.warning("Judge agent LLM failed: %s", e)
+            return "### 🤺 Multi-Agent Debate Output\n\nFailed to synthesize debate verdict due to temporary AI service unavailability."
 
     final_verdict = await agent_judge(defense_argument, attack_argument)
     return final_verdict

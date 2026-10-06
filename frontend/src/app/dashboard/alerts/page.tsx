@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import axios from "axios";
+import { apiGet } from "@/lib/api";
 import { format } from "date-fns";
 import AnimatedCard from "@/components/AnimatedCard";
 import AnimatedText from "@/components/AnimatedText";
@@ -31,8 +31,7 @@ interface Snapshot {
 import { useAuth } from "@clerk/nextjs";
 
 export default function AlertsPage() {
-  const { userId } = useAuth();
-  const headers = { 'x-user-id': userId };
+  const { getToken, isLoaded } = useAuth();
 
   const [competitors, setCompetitors] = useState<any[]>([]);
   const [selectedCompId, setSelectedCompId] = useState<number | null>(null);
@@ -41,10 +40,10 @@ export default function AlertsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (userId) {
+    if (isLoaded) {
       fetchCompetitors();
     }
-  }, [userId]);
+  }, [isLoaded, getToken]);
 
   useEffect(() => {
     if (selectedCompId) {
@@ -54,10 +53,10 @@ export default function AlertsPage() {
 
   const fetchCompetitors = async () => {
     try {
-      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/competitors`, { headers });
-      setCompetitors(res.data);
-      if (res.data.length > 0) {
-        setSelectedCompId(res.data[0].id);
+      const res = await apiGet<any[]>(getToken, "/api/competitors");
+      setCompetitors(res);
+      if (res.length > 0) {
+        setSelectedCompId(res[0].id);
       }
     } catch (err) {
       console.error(err);
@@ -69,9 +68,9 @@ export default function AlertsPage() {
   const fetchAlerts = async (id: number) => {
     setLoading(true);
     try {
-      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/alerts/${id}`, { headers });
-      setAlerts(res.data.alerts);
-      setSnapshots(res.data.snapshots);
+      const res = await apiGet<{ alerts: Alert[]; snapshots: Snapshot[] }>(getToken, `/api/alerts/${id}`);
+      setAlerts(res.alerts);
+      setSnapshots(res.snapshots);
     } catch (err) {
       console.error(err);
     } finally {

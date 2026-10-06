@@ -9,5 +9,15 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.0
+      - key: ENVIRONMENT
+        value: production
       - key: NVIDIA_API_KEY
+        sync: false
+      - key: PINECONE_API_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: CLERK_JWT_ISSUER
+        sync: false
+      - key: ALLOWED_ORIGINS
         sync: false

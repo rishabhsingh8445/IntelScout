@@ -169,7 +169,8 @@ cd IntelScout
 **2. Setup and run the Backend**
 ```bash
 cd backend
-uv pip install -e .
+uv sync --extra dev
+uv run pytest
 uv run uvicorn src.main:app --reload --host 127.0.0.1 --port 8000
 ```
 > The API documentation will be available at `http://127.0.0.1:8000/docs`.

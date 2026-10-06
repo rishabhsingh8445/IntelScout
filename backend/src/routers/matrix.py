@@ -11,13 +11,38 @@ class MatrixRequest(BaseModel):
     our_company: str
     competitor: str
 
-matrix_cache = {}
+from collections import OrderedDict
+import time
+
+_CACHE_TTL_SECONDS = 900
+_CACHE_MAX = 64
+_matrix_cache: OrderedDict[str, tuple[float, str]] = OrderedDict()
+
+
+def _matrix_cache_get(key: str) -> str | None:
+    entry = _matrix_cache.get(key)
+    if not entry:
+        return None
+    ts, value = entry
+    if time.time() - ts > _CACHE_TTL_SECONDS:
+        _matrix_cache.pop(key, None)
+        return None
+    return value
+
+
+def _matrix_cache_set(key: str, value: str) -> None:
+    _matrix_cache[key] = (time.time(), value)
+    _matrix_cache.move_to_end(key)
+    while len(_matrix_cache) > _CACHE_MAX:
+        _matrix_cache.popitem(last=False)
+
 
 @router.post("")
 async def create_matrix(req: MatrixRequest, user_id: str = Depends(get_current_user)):
     cache_key = f"{user_id}_{req.our_company}_{req.competitor}"
-    if cache_key in matrix_cache:
-        return {"matrix": matrix_cache[cache_key]}
+    cached = _matrix_cache_get(cache_key)
+    if cached:
+        return {"matrix": cached}
         
     comp_a_task = scrape_company_context(req.our_company, "Last 1 Year", user_id)
     comp_b_task = scrape_company_context(req.competitor, "Last 1 Year", user_id)
@@ -34,5 +59,5 @@ async def create_matrix(req: MatrixRequest, user_id: str = Depends(get_current_u
         them = "✅" if row.get("them") else "❌"
         md += f"| **{feature}** | {us} | {them} |\n"
         
-    matrix_cache[cache_key] = md
+    _matrix_cache_set(cache_key, md)
     return {"matrix": md}

@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import axios from "axios";
 import { useAuth } from "@clerk/nextjs";
+import { apiDelete, apiGet, apiPost, buildAuthConfig, API_BASE } from "@/lib/api";
+import axios from "axios";
 import { 
   Users, 
   Plus, 
@@ -83,8 +84,7 @@ interface Competitor {
 }
 
 export default function CompetitorsPage() {
-  const { userId } = useAuth();
-  const headers = { 'x-user-id': userId };
+  const { getToken, isLoaded } = useAuth();
 
   const [competitors, setCompetitors] = useState<Competitor[]>([]);
   const [loading, setLoading] = useState(true);
@@ -116,11 +116,11 @@ export default function CompetitorsPage() {
     setReportSearchError("");
     
     try {
-      const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/search`, {
+      const authConfig = await buildAuthConfig(getToken, {
         params: { q: reportQuery, competitor: selectedReport.name },
-        headers,
-        timeout: 45000
+        timeout: 45000,
       });
+      const response = await axios.get(`${API_BASE}/api/search`, authConfig);
       
       const data = response.data.results || response.data || [];
       setReportSources(Array.isArray(data) ? data : [data]);
@@ -146,8 +146,8 @@ export default function CompetitorsPage() {
   const fetchCompetitors = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/competitors`, { headers });
-      setCompetitors(res.data);
+      const res = await apiGet<Competitor[]>(getToken, "/api/competitors");
+      setCompetitors(res);
     } catch (error) {
       console.error("Failed to fetch competitors", error);
     } finally {
@@ -156,8 +156,9 @@ export default function CompetitorsPage() {
   };
 
   useEffect(() => {
+    if (!isLoaded) return;
     fetchCompetitors();
-  }, []);
+  }, [isLoaded, getToken]);
 
   // Background polling for researching competitors
   useEffect(() => {
@@ -166,8 +167,8 @@ export default function CompetitorsPage() {
 
     const intervalId = setInterval(async () => {
       try {
-        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/competitors`, { headers });
-        setCompetitors(res.data);
+        const res = await apiGet<Competitor[]>(getToken, "/api/competitors");
+        setCompetitors(res);
       } catch (error) {
         console.error("Failed to poll competitors", error);
       }
@@ -180,10 +181,10 @@ export default function CompetitorsPage() {
     e.preventDefault();
     try {
       setSubmitting(true);
-      await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/competitors?name=${encodeURIComponent(formData.name)}&timeframe=${encodeURIComponent(formData.timeframe)}&report_type=${encodeURIComponent(formData.report_type)}`,
-        {},
-        { headers }
+      await apiPost(
+        getToken,
+        `/api/competitors?name=${encodeURIComponent(formData.name)}&timeframe=${encodeURIComponent(formData.timeframe)}&report_type=${encodeURIComponent(formData.report_type)}`,
+        {}
       );
       setFormData({ name: "", timeframe: "Since Launch", report_type: "Short" });
       setShowAddForm(false);
@@ -198,7 +199,7 @@ export default function CompetitorsPage() {
 
   const handleDelete = async (id: number) => {
     try {
-      await axios.delete(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/competitors/${id}`, { headers });
+      await apiDelete(getToken, `/api/competitors/${id}`);
       setCompetitors(competitors.filter((c) => c.id !== id));
     } catch (error) {
       console.error("Failed to delete competitor", error);
@@ -207,9 +208,9 @@ export default function CompetitorsPage() {
 
   const handleToggleWatch = async (id: number) => {
     try {
-      const res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/competitors/${id}/watch`, {}, { headers });
+      const res = await apiPost<{ is_watched: boolean }>(getToken, `/api/competitors/${id}/watch`, {});
       setCompetitors(competitors.map(c => 
-        c.id === id ? { ...c, is_watched: res.data.is_watched } : c
+        c.id === id ? { ...c, is_watched: res.is_watched } : c
       ));
     } catch (error) {
       console.error("Failed to toggle watch", error);
@@ -218,7 +219,7 @@ export default function CompetitorsPage() {
 
   const handleRescrape = async (id: number) => {
     try {
-      await axios.post(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/competitors/${id}/rescrape`, {}, { headers });
+      await apiPost(getToken, `/api/competitors/${id}/rescrape`, {});
       // Update status locally
       setCompetitors(competitors.map(c => 
         c.id === id ? { ...c, status: "Researching..." } : c

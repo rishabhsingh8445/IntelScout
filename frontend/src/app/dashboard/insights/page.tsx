@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import axios from "axios";
 import { useAuth } from "@clerk/nextjs";
+import { apiGet } from "@/lib/api";
 import { 
   Lightbulb, 
   AlertCircle, 
@@ -29,8 +29,7 @@ interface Insight {
 }
 
 export default function InsightsPage() {
-  const { userId } = useAuth();
-  const headers = { 'x-user-id': userId };
+  const { getToken, isLoaded } = useAuth();
 
   const [insights, setInsights] = useState<Insight[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,13 +37,14 @@ export default function InsightsPage() {
   const [selectedCompany, setSelectedCompany] = useState<string>("All");
 
   useEffect(() => {
+    if (!isLoaded) return;
     const fetchInsights = async () => {
       try {
         setLoading(true);
-        const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/insights`, { headers });
-        setInsights(Array.isArray(response.data) ? response.data : []);
+        const data = await apiGet<Insight[]>(getToken, "/api/insights");
+        setInsights(Array.isArray(data) ? data : []);
         setError(null);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("Error fetching insights:", err);
         setError("Failed to load insights. Make sure the backend is running.");
       } finally {
@@ -53,7 +53,7 @@ export default function InsightsPage() {
     };
 
     fetchInsights();
-  }, []);
+  }, [isLoaded, getToken]);
 
   const getCategoryIcon = (category?: string) => {
     switch (category?.toLowerCase()) {
