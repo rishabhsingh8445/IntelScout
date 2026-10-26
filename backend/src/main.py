@@ -32,7 +32,8 @@ async def lifespan(app: FastAPI):
         start_scheduler()
 
     yield
-    # Shutdown (nothing needed currently)
+    # Shutdown
+    await engine.dispose()
 
 
 app = FastAPI(

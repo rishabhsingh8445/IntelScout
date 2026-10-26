@@ -1,4 +1,5 @@
 from functools import cached_property
+import urllib.parse
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -35,9 +36,25 @@ class Settings(BaseSettings):
             return value
         v = value.strip()
         if v.startswith("postgres://"):
-            return "postgresql+asyncpg://" + v[len("postgres://") :]
-        if v.startswith("postgresql://") and not v.startswith("postgresql+asyncpg://"):
-            return "postgresql+asyncpg://" + v[len("postgresql://") :]
+            v = "postgresql+asyncpg://" + v[len("postgres://") :]
+        elif v.startswith("postgresql://") and not v.startswith("postgresql+asyncpg://"):
+            v = "postgresql+asyncpg://" + v[len("postgresql://") :]
+
+        if v.startswith("postgresql+asyncpg://"):
+            parsed = urllib.parse.urlsplit(v)
+            query_params = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
+            if "sslmode" in query_params:
+                ssl_val = query_params.pop("sslmode")[0]
+                if "ssl" not in query_params:
+                    query_params["ssl"] = [ssl_val]
+            query_params.pop("channel_binding", None)
+            query_params.pop("gssencmode", None)
+            query_params.pop("target_session_attrs", None)
+            new_query = urllib.parse.urlencode([(k, val[0]) for k, val in query_params.items()])
+            v = urllib.parse.urlunsplit(
+                (parsed.scheme, parsed.netloc, parsed.path, new_query, parsed.fragment)
+            )
+
         return v
 
     @field_validator("ENVIRONMENT")
