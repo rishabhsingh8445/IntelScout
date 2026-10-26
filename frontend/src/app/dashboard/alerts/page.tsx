@@ -1,11 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useAuth } from "@clerk/nextjs";
 import { apiGet } from "@/lib/api";
 import { format } from "date-fns";
 import AnimatedCard from "@/components/AnimatedCard";
 import AnimatedText from "@/components/AnimatedText";
 import GridBackground from "@/components/GridBackground";
+
+interface CompetitorItem {
+  id: number;
+  name: string;
+}
 
 interface Alert {
   id: number;
@@ -28,55 +34,57 @@ interface Snapshot {
   sentiment_score?: number;
   sentiment_reason?: string;
 }
-import { useAuth } from "@clerk/nextjs";
 
 export default function AlertsPage() {
   const { getToken, isLoaded } = useAuth();
 
-  const [competitors, setCompetitors] = useState<any[]>([]);
+  const [competitors, setCompetitors] = useState<CompetitorItem[]>([]);
   const [selectedCompId, setSelectedCompId] = useState<number | null>(null);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let isCancelled = false;
     if (isLoaded) {
-      fetchCompetitors();
+      apiGet<CompetitorItem[]>(getToken, "/api/competitors")
+        .then((res) => {
+          if (!isCancelled) {
+            setCompetitors(res);
+            if (res.length > 0) {
+              setSelectedCompId((prev) => prev ?? res[0].id);
+            }
+          }
+        })
+        .catch(console.error)
+        .finally(() => {
+          if (!isCancelled) setLoading(false);
+        });
     }
+    return () => {
+      isCancelled = true;
+    };
   }, [isLoaded, getToken]);
 
   useEffect(() => {
+    let isCancelled = false;
     if (selectedCompId) {
-      fetchAlerts(selectedCompId);
+      apiGet<{ alerts: Alert[]; snapshots: Snapshot[] }>(getToken, `/api/alerts/${selectedCompId}`)
+        .then((res) => {
+          if (!isCancelled) {
+            setAlerts(res.alerts);
+            setSnapshots(res.snapshots);
+          }
+        })
+        .catch(console.error)
+        .finally(() => {
+          if (!isCancelled) setLoading(false);
+        });
     }
-  }, [selectedCompId]);
-
-  const fetchCompetitors = async () => {
-    try {
-      const res = await apiGet<any[]>(getToken, "/api/competitors");
-      setCompetitors(res);
-      if (res.length > 0) {
-        setSelectedCompId(res[0].id);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchAlerts = async (id: number) => {
-    setLoading(true);
-    try {
-      const res = await apiGet<{ alerts: Alert[]; snapshots: Snapshot[] }>(getToken, `/api/alerts/${id}`);
-      setAlerts(res.alerts);
-      setSnapshots(res.snapshots);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+    return () => {
+      isCancelled = true;
+    };
+  }, [selectedCompId, getToken]);
 
   const getThreatColor = (level: string) => {
     if (level === "High") return "text-red-500 bg-red-500/10 border-red-500/20";
@@ -116,7 +124,10 @@ export default function AlertsPage() {
           {competitors.map((comp) => (
             <button
               key={comp.id}
-              onClick={() => setSelectedCompId(comp.id)}
+              onClick={() => {
+                setSelectedCompId(comp.id);
+                setLoading(true);
+              }}
               className={`px-6 py-3 rounded-xl transition-all font-semibold border ${
                 selectedCompId === comp.id
                   ? "bg-red-500/20 border-red-500/50 text-white shadow-[0_0_15px_rgba(239,68,68,0.3)]"
@@ -201,7 +212,7 @@ export default function AlertsPage() {
                           <h5 className="text-xs font-semibold text-white/40 uppercase mb-1">Customer Sentiment</h5>
                           <div className="mb-1">{getSentimentBadge(snap.sentiment, snap.sentiment_score)}</div>
                           {snap.sentiment_reason && (
-                            <p className="text-xs text-white/60 italic leading-relaxed">"{snap.sentiment_reason}"</p>
+                            <p className="text-xs text-white/60 italic leading-relaxed">&ldquo;{snap.sentiment_reason}&rdquo;</p>
                           )}
                         </div>
                       )}

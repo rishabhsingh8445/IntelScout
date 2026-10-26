@@ -28,6 +28,18 @@ class Settings(BaseSettings):
     LLM_MAX_CONCURRENT: int = 3
     SCRAPE_JOB_SEMAPHORE: int = 2
 
+    @field_validator("DATABASE_URL")
+    @classmethod
+    def normalize_database_url(cls, value: str) -> str:
+        if not value:
+            return value
+        v = value.strip()
+        if v.startswith("postgres://"):
+            return "postgresql+asyncpg://" + v[len("postgres://") :]
+        if v.startswith("postgresql://") and not v.startswith("postgresql+asyncpg://"):
+            return "postgresql+asyncpg://" + v[len("postgresql://") :]
+        return v
+
     @field_validator("ENVIRONMENT")
     @classmethod
     def normalize_environment(cls, value: str) -> str:

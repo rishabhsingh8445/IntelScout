@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
 import { motion } from "framer-motion";
-import { LayoutDashboard, Users, Lightbulb, Shield, Grid, Search, Zap, AlertTriangle } from "lucide-react";
+import { LayoutDashboard, Users, Lightbulb, Shield, Grid, Zap, AlertTriangle } from "lucide-react";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

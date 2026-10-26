@@ -10,8 +10,6 @@ import {
   TrendingUp, 
   Clock, 
   CheckCircle2,
-  ChevronRight,
-  ShieldAlert,
   Zap,
   Activity
 } from "lucide-react";

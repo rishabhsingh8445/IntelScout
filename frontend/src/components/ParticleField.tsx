@@ -22,20 +22,20 @@ interface ShootingStar {
   size: number;
 }
 
+const PARTICLE_COLORS = [
+  "rgba(99, 102, 241,",   // indigo
+  "rgba(139, 92, 246,",   // violet
+  "rgba(236, 72, 153,",   // pink
+  "rgba(34, 211, 238,",   // cyan
+  "rgba(167, 139, 250,",  // purple
+];
+
 export default function ParticleField({ particleCount = 150 }: { particleCount?: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mouseRef = useRef({ x: -1000, y: -1000 });
   const particlesRef = useRef<Particle[]>([]);
   const starsRef = useRef<ShootingStar[]>([]);
   const animFrameRef = useRef<number>(0);
-
-  const colors = [
-    "rgba(99, 102, 241,",   // indigo
-    "rgba(139, 92, 246,",   // violet
-    "rgba(236, 72, 153,",   // pink
-    "rgba(34, 211, 238,",   // cyan
-    "rgba(167, 139, 250,",  // purple
-  ];
 
   const initParticles = useCallback((w: number, h: number) => {
     particlesRef.current = Array.from({ length: particleCount }, () => ({
@@ -45,7 +45,7 @@ export default function ParticleField({ particleCount = 150 }: { particleCount?:
       vy: (Math.random() - 0.5) * 0.4,
       size: Math.random() * 2 + 0.5,
       opacity: Math.random() * 0.6 + 0.2,
-      color: colors[Math.floor(Math.random() * colors.length)],
+      color: PARTICLE_COLORS[Math.floor(Math.random() * PARTICLE_COLORS.length)],
     }));
   }, [particleCount]);
 

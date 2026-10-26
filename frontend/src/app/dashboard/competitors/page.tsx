@@ -20,16 +20,16 @@ import {
   X,
   Download,
   MessageSquare,
-  ChevronRight,
   ChevronDown,
   Zap
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
-const MemoizedMarkdown = memo(({ content }: { content: string }) => {
+const MemoizedMarkdown = memo(function MemoizedMarkdown({ content }: { content: string }) {
   return <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>;
 });
+MemoizedMarkdown.displayName = "MemoizedMarkdown";
 
 const CustomSelect = ({ value, onChange, options }: { value: string, onChange: (val: string) => void, options: string[] }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -96,7 +96,6 @@ export default function CompetitorsPage() {
   // Report Q&A State
   const [reportQuery, setReportQuery] = useState("");
   const [reportAnswer, setReportAnswer] = useState("");
-  const [reportSources, setReportSources] = useState<any[]>([]);
   const [isSearchingReport, setIsSearchingReport] = useState(false);
   const [reportSearchError, setReportSearchError] = useState("");
 
@@ -104,7 +103,6 @@ export default function CompetitorsPage() {
     setSelectedReport(competitor);
     setReportQuery("");
     setReportAnswer("");
-    setReportSources([]);
     setReportSearchError("");
   };
 
@@ -122,14 +120,12 @@ export default function CompetitorsPage() {
       });
       const response = await axios.get(`${API_BASE}/api/search`, authConfig);
       
-      const data = response.data.results || response.data || [];
-      setReportSources(Array.isArray(data) ? data : [data]);
       if (response.data.answer) {
         setReportAnswer(response.data.answer);
       } else {
         setReportAnswer('');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(error);
       setReportSearchError("Failed to search report data.");
     } finally {
@@ -143,9 +139,8 @@ export default function CompetitorsPage() {
     report_type: "Short",
   });
 
-  const fetchCompetitors = async () => {
+  const fetchCompetitors = React.useCallback(async () => {
     try {
-      setLoading(true);
       const res = await apiGet<Competitor[]>(getToken, "/api/competitors");
       setCompetitors(res);
     } catch (error) {
@@ -153,11 +148,23 @@ export default function CompetitorsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [getToken]);
 
   useEffect(() => {
-    if (!isLoaded) return;
-    fetchCompetitors();
+    let isCancelled = false;
+    if (isLoaded) {
+      apiGet<Competitor[]>(getToken, "/api/competitors")
+        .then((res) => {
+          if (!isCancelled) setCompetitors(res);
+        })
+        .catch((error) => console.error("Failed to fetch competitors", error))
+        .finally(() => {
+          if (!isCancelled) setLoading(false);
+        });
+    }
+    return () => {
+      isCancelled = true;
+    };
   }, [isLoaded, getToken]);
 
   // Background polling for researching competitors
@@ -175,7 +182,7 @@ export default function CompetitorsPage() {
     }, 5000); // Check every 5 seconds
 
     return () => clearInterval(intervalId);
-  }, [competitors]);
+  }, [competitors, getToken]);
 
   const handleAddCompetitor = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -371,7 +378,7 @@ export default function CompetitorsPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <AnimatePresence>
-            {filteredCompetitors.map((competitor, idx) => (
+            {filteredCompetitors.map((competitor) => (
               <motion.div 
                 key={competitor.id}
                 layout
@@ -487,7 +494,7 @@ export default function CompetitorsPage() {
                     <span className="hidden sm:inline">Export PDF</span>
                   </button>
                   <button 
-                    onClick={() => handleOpenReport(null as any)}
+                    onClick={() => setSelectedReport(null)}
                     className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-all"
                   >
                     <X className="w-5 h-5" />

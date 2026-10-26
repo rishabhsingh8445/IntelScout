@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { Zap, Activity, Shield, Globe, ArrowRight, X } from "lucide-react";
 import { useAuth, SignInButton } from "@clerk/nextjs";
@@ -9,36 +9,10 @@ import ParticleField from "@/components/ParticleField";
 import FloatingOrbs from "@/components/FloatingOrbs";
 import GridBackground from "@/components/GridBackground";
 import AnimatedCard from "@/components/AnimatedCard";
-import AnimatedText from "@/components/AnimatedText";
-
-const stagger = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.15, delayChildren: 0.3 },
-  },
-};
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 30 },
-  visible: { 
-    opacity: 1, y: 0, 
-    transition: { duration: 0.7, ease: [0.23, 1, 0.32, 1] } 
-  },
-};
 
 export default function LandingPage() {
   const { userId } = useAuth();
   const [isDashboardOpen, setIsDashboardOpen] = useState(false);
-
-  // Automatically open the dashboard if signed in, and close it if signed out
-  useEffect(() => {
-    if (userId) {
-      setIsDashboardOpen(true);
-    } else {
-      setIsDashboardOpen(false);
-    }
-  }, [userId]);
 
   return (
     <div className="min-h-screen bg-[#030014] text-white selection:bg-indigo-500/30 overflow-x-hidden font-sans relative">
@@ -60,7 +34,7 @@ export default function LandingPage() {
             <motion.div 
               className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg shadow-indigo-500/25 relative overflow-hidden"
               whileHover={{ rotate: 180, scale: 1.1 }}
-              transition={{ type: "spring" as any, stiffness: 200 }}
+              transition={{ type: "spring", stiffness: 200 }}
             >
               <div className="absolute inset-0 bg-white/10 animate-pulse-glow" />
               <Zap className="h-5 w-5 text-white relative z-10" fill="currentColor" />
